@@ -37,7 +37,7 @@ cloudnativepg:
 # --- CNPG cluster via local subchart ---
 postgresCluster:
   enabled: true
-  repoURL: .
+  repoURL: git@github.com:basavaraj23/chip-game.git
   path: build/helm/postgres-cluster
   destinationNamespace: datastores
   values:
@@ -60,7 +60,7 @@ strimzi:
 # --- Local Kafka cluster subchart (this repo path) ---
 kafkaCluster:
   enabled: true
-  repoURL: .
+  repoURL: git@github.com:basavaraj23/chip-game.git
   path: build/helm/kafka-cluster
   destinationNamespace: kafka
   values:
