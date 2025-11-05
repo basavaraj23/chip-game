@@ -23,13 +23,16 @@ redis:
 
 # --- CloudNativePG operator via Argo Application (Helm chart source) ---
 cloudnativepg:
-  enabled: true                     # <— same gating pattern
+  enabled: true
   repoURL: https://cloudnative-pg.github.io/charts
   chart: cloudnative-pg
-  version: 0.26.0
+  version: 0.26.0                   # Use explicit version; avoid "latest" for stability
   destinationNamespace: datastores
   values:
+    webhook:
+      enable: false                 # disables webhook (simplifies Kind/localhost use)
     watchNamespaces: ["datastores"]
+
 
 # --- CNPG cluster via local subchart ---
 postgresCluster:

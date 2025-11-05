@@ -22,3 +22,32 @@ spec:
     syncOptions:
       - CreateNamespace=true
 {{- end }}
+
+
+{{- if .Values.cloudnativepg.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudnativepg-operator
+  namespace: argocd
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.cloudnativepg.destinationNamespace }}
+  source:
+    repoURL: {{ .Values.cloudnativepg.repoURL }}
+    chart: {{ .Values.cloudnativepg.chart }}
+    targetRevision: {{ .Values.cloudnativepg.version }}
+    helm:
+      valuesObject: {{- toYaml .Values.cloudnativepg.values | nindent 8 }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true       #  helps CRD reapplication succeed
+      - Replace=true               # allows Argo to replace existing CRDs if needed
+{{- end }}
+
