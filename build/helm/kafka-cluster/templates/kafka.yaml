@@ -1,17 +1,19 @@
 apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
-  name: {{ .Values.clusterName }}
+  name: chip-kafka
+  namespace: kafka
 spec:
   kafka:
-    replicas: {{ .Values.replicas }}
+    version: 3.7.0
+    replicas: 1
+    storage:
+      type: ephemeral
     listeners:
       - name: plain
         port: 9092
         type: internal
         tls: false
-    storage:
-      type: ephemeral
   zookeeper:
     replicas: 1
     storage:
@@ -24,8 +26,9 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
   name: chip-moves
+  namespace: kafka
   labels:
-    strimzi.io/cluster: {{ .Values.clusterName }}
+    strimzi.io/cluster: chip-kafka
 spec:
   partitions: 3
   replicas: 1

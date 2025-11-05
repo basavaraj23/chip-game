@@ -1,24 +1,29 @@
-{{- if .Values.kafkaCluster.enabled }}
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: chip-kafka-cluster
+  name: kafka-cluster
   namespace: argocd
+  labels:
+    app.kubernetes.io/name: kafka-cluster
+  annotations:
+    # Apply after operator is up
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: {{ .Values.kafkaCluster.destinationNamespace }}
+    namespace: kafka
   source:
-    repoURL: {{ .Values.kafkaCluster.repoURL }}
-    path: {{ .Values.kafkaCluster.path }}
-    targetRevision: HEAD
+    repoURL: git@github.com:basavaraj23/chip-game.git 
+    path: build/helm/kafka-cluster
+    targetRevision: main
+    # This directory just holds plain YAML; Helm is fine to pass-through,
+    # or switch to kustomize if you prefer.
     helm:
-      valuesObject: {{- toYaml .Values.kafkaCluster.values | nindent 8 }}
+      valuesObject: {}
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
-{{- end }}
+      - ServerSideApply=true

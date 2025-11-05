@@ -53,20 +53,17 @@ strimzi:
   repoURL: https://strimzi.io/charts/
   chart: strimzi-kafka-operator
   version: 0.47.0
-  destinationNamespace: kafka
+  destinationNamespace: argocd
   values:
-    watchNamespaces: ["kafka"]
+    watchNamespaces: ["argocd"]
 
 # --- Local Kafka cluster subchart (this repo path) ---
 kafkaCluster:
   enabled: true
   repoURL: git@github.com:basavaraj23/chip-game.git
   path: build/helm/kafka-cluster
-  destinationNamespace: kafka
-  values:
-    clusterName: chip-kafka
-    replicas: 1
-    storageSize: 5Gi
+  targetRevision: main
+  destinationNamespace: argocd
 
 # --- Backend app via local subchart ---
 chipBackend:

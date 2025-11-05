@@ -1,3 +1,6 @@
-clusterName: chip-kafka
-replicas: 1
-storageSize: 5Gi
+kafka:
+  name: chip-kafka
+  version: "3.7.0"
+  replicas: 1
+  partitions: 3
+  retentionMs: 86400000
