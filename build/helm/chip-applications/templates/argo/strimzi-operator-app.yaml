@@ -1,0 +1,24 @@
+{{- if .Values.strimzi.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: strimzi-operator
+  namespace: argocd
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.strimzi.destinationNamespace }}
+  source:
+    repoURL: {{ .Values.strimzi.repoURL }}
+    chart: {{ .Values.strimzi.chart }}
+    targetRevision: {{ .Values.strimzi.version }}
+    helm:
+      valuesObject: {{- toYaml .Values.strimzi.values | nindent 8 }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}

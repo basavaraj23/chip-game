@@ -1,0 +1,3 @@
+clusterName: chip-kafka
+replicas: 1
+storageSize: 5Gi

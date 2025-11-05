@@ -1,0 +1,24 @@
+{{- if .Values.postgresCluster.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chip-postgres-cluster
+  namespace: argocd
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.postgresCluster.destinationNamespace }}
+  source:
+    repoURL: {{ .Values.postgresCluster.repoURL }}
+    path: {{ .Values.postgresCluster.path }}
+    targetRevision: HEAD
+    helm:
+      valuesObject: {{- toYaml .Values.postgresCluster.values | nindent 8 }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}

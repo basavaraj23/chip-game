@@ -1,0 +1,8 @@
+image:
+  repository: chip-backend
+  tag: "v0.1.0"
+  pullPolicy: IfNotPresent
+replicas: 1
+service:
+  port: 8080
+env: {}

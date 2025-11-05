@@ -1,0 +1,24 @@
+{{- if .Values.chipBackend.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chip-backend
+  namespace: argocd
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.chipBackend.destinationNamespace }}
+  source:
+    repoURL: {{ .Values.chipBackend.repoURL }}
+    path: {{ .Values.chipBackend.path }}
+    targetRevision: HEAD
+    helm:
+      valuesObject: {{- toYaml .Values.chipBackend.values | nindent 8 }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}

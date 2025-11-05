@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: chip-frontend
+spec:
+  selector:
+    app: chip-frontend
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: 80
+  type: ClusterIP
