@@ -30,7 +30,7 @@ cloudnativepg:
   destinationNamespace: datastores
   values:
     webhook:
-      enable: false                 # disables webhook (simplifies Kind/localhost use)
+      enabled: false                 # disables webhook (simplifies Kind/localhost use)
     watchNamespaces: ["datastores"]
 
 
