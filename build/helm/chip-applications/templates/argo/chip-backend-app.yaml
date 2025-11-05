@@ -1,4 +1,4 @@
-{{- if .Values.chipBackend.enabled }}
+{{- if and .Values.chipBackend .Values.chipBackend.enabled }}
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -8,11 +8,11 @@ spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: {{ .Values.chipBackend.destinationNamespace }}
+    namespace: {{ default "chip" .Values.chipBackend.destinationNamespace }}
   source:
     repoURL: {{ .Values.chipBackend.repoURL }}
     path: {{ .Values.chipBackend.path }}
-    targetRevision: HEAD
+    targetRevision: {{ .Values.chipBackend.targetRevision | default "main" }}
     helm:
       valuesObject: {{- toYaml .Values.chipBackend.values | nindent 8 }}
   syncPolicy:

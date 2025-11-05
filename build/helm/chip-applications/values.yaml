@@ -68,7 +68,7 @@ kafkaCluster:
 # --- Backend app via local subchart ---
 chipBackend:
   enabled: true
-  repoURL: .
+  repoURL: git@github.com:basavaraj23/chip-game.git 
   path: build/helm/chip-backend
   destinationNamespace: chip
   values:
@@ -96,7 +96,7 @@ chipBackend:
 # --- Frontend app via local subchart ---
 chipFrontend:
   enabled: true
-  repoURL: .
+  repoURL: git@github.com:basavaraj23/chip-game.git
   path: build/helm/chip-frontend
   destinationNamespace: chip
   values:
