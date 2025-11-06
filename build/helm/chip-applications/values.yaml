@@ -47,15 +47,15 @@ postgresCluster:
     appPass: supersecret
     storageSize: 5Gi
 
-# Strimzi Kafka Operator – 0.47.0 (last release supporting Kafka 3.7)
+# Strimzi Kafka Operator – 0.48.0 (supports Kafka 3.7)
 strimzi:
   enabled: true
   repoURL: https://strimzi.io/charts/
   chart: strimzi-kafka-operator
-  version: 0.47.0
-  destinationNamespace: argocd
+  version: 0.48.0
+  destinationNamespace: kafka
   values:
-    watchNamespaces: ["argocd"]
+    watchNamespaces: ["kafka"]
 
 # --- Local Kafka cluster subchart (this repo path) ---
 kafkaCluster:
@@ -63,7 +63,7 @@ kafkaCluster:
   repoURL: git@github.com:basavaraj23/chip-game.git
   path: build/helm/kafka-cluster
   targetRevision: main
-  destinationNamespace: argocd
+  destinationNamespace: kafka
 
 # --- Backend app via local subchart ---
 chipBackend:

@@ -4,3 +4,5 @@ kafka:
   replicas: 1
   partitions: 3
   retentionMs: 86400000
+  topicName: chip-moves
+  topicReplicas: 1

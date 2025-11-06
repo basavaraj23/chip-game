@@ -1,3 +1,4 @@
+{{- $kafka := .Values.kafkaCluster -}}
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -12,13 +13,11 @@ spec:
   project: default
   destination:
     server: https://kubernetes.default.svc
-    namespace: kafka
+    namespace: {{ $kafka.destinationNamespace | default "kafka" }}
   source:
-    repoURL: git@github.com:basavaraj23/chip-game.git 
-    path: build/helm/kafka-cluster
-    targetRevision: main
-    # This directory just holds plain YAML; Helm is fine to pass-through,
-    # or switch to kustomize if you prefer.
+    repoURL: {{ $kafka.repoURL }}
+    path: {{ $kafka.path }}
+    targetRevision: {{ $kafka.targetRevision | default "main" }}
     helm:
       valuesObject: {}
   syncPolicy:
@@ -26,4 +25,5 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
+      - CreateNamespace=true
       - ServerSideApply=true

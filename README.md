@@ -1,245 +1,127 @@
+# Chip Game
 
----
+Chip Game is a lightweight demo stack that showcases a tiny chip-collecting game backed by Flask, a one-page frontend, and a Kubernetes deployment bundle that provisions Redis, PostgreSQL, and Kafka via Strimzi. The repository is intentionally small so you can experiment with local development, container builds, or Argo CD + Helm based GitOps workflows.
 
-# WCC Kind Cluster — Argo CD Deployment Guide
+## Repository layout
 
-This document provides **step-by-step instructions** to provision and manage the following operators on a **Kind (Kubernetes-in-Docker)** cluster using **Argo CD** and **Helm**:
+| Path | Description |
+| --- | --- |
+| `chip-backend/` | Flask 3.x API that records chip collections, publishes them to Kafka, and keeps a leaderboard derived from the topic stream. Includes a Dockerfile for container builds. |
+| `chip-frontend/` | Static HTML/JS page that calls the backend’s `/api/collect` endpoint. Ships with an Nginx-based Dockerfile. |
+| `build/helm/chip-applications/` | Umbrella Helm chart (type `application`) that defines Argo CD Applications for every dependency and workload. Installing this chart in the `argocd` namespace bootstraps the full stack. |
+| `build/helm/kafka-cluster/` | Strimzi `Kafka` + `KafkaTopic` manifests parameterized for the project (cluster name, version, retention, etc.). |
+| `build/helm/postgres-cluster/` | CloudNativePG cluster definition consumed by the umbrella chart. |
+| `build/helm/chip-backend/`, `build/helm/chip-frontend/` | Simple Helm charts that deploy the two workloads inside Kubernetes. |
 
-- **CloudNativePG (PostgreSQL Operator)**
-- **Kafka Operator (Strimzi)**
-- **Redis Operator (Bitnami)**
-- Managed via **Argo CD** using a Helm chart (`chip-applications`)
+## Backend service
 
----
+The backend exposes:
 
-## Prerequisites
+- `POST /api/collect` – accepts `{player, chips}` JSON, publishes the move to Kafka, and echoes a confirmation.
+- `GET /api/leaderboard` – returns the top players aggregated from Kafka (falls back to sample data if Kafka is unavailable).
+- `GET /healthz` and `GET /livez` – HTTP probes used by Kubernetes.
 
-Ensure the following are installed locally:
+Key environment variables (set via Helm values or your shell):
 
-- [Kind](https://kind.sigs.k8s.io/)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- [Helm](https://helm.sh/docs/intro/install/)
-- [Argo CD CLI](https://argo-cd.readthedocs.io/en/stable/cli_installation/)
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `KAFKA_BROKERS` | Comma-separated bootstrap brokers | empty (Kafka disabled) |
+| `KAFKA_TOPIC` | Topic to publish/consume chip moves | `chip-moves` |
+| `KAFKA_GROUP_ID` | Consumer group for leaderboard aggregation | `chip-backend` |
+| `KAFKA_AUTO_OFFSET_RESET` | Strimzi-compatible offset reset policy | `latest` |
 
----
+When `KAFKA_BROKERS` is not provided, the service still responds but aggregates scores only in-memory.
 
-## Step 1: Create Kind Cluster
-
-If an old cluster exists, delete it first:
-
-```bash
-kind delete cluster --name wcc
-````
-
-Create a new cluster:
-
-```bash
-kind create cluster --name wcc
-```
-
----
-
-## Step 2: Create Namespaces
-
-Create required namespaces:
+### Run locally
 
 ```bash
-kubectl create ns datastores || true
-kubectl create ns apps || true
-kubectl create namespace argocd
+cd chip-backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+export KAFKA_BROKERS=chip-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+export KAFKA_TOPIC=chip-moves
+python app.py
 ```
 
----
+The backend listens on `http://localhost:8080`.
 
-## Step 3: Install Argo CD
+## Frontend
 
-Apply the official Argo CD manifest:
+`chip-frontend/index.html` is a minimal static page. For local testing, open the file in a browser or serve it via any static file server:
 
 ```bash
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v3.1.9/manifests/install.yaml
+cd chip-frontend
+python -m http.server 8000
 ```
 
-Wait for the Argo CD server to be ready:
+Set `API_BASE_URL` in the page (or via `window.API_BASE_URL`) if the backend is not at `http://localhost:8080`.
+
+## Container builds
+
+Both services include Dockerfiles:
 
 ```bash
-kubectl -n argocd rollout status deploy/argocd-server
+# Backend
+cd chip-backend
+docker build -t chip-backend:local .
+
+# Frontend
+cd ../chip-frontend
+docker build -t chip-frontend:local .
 ```
 
----
+Push the images to the registry of your choice before syncing the Helm releases in Kubernetes.
 
-## Step 4: Deploy Applications via Helm
+## Kubernetes / Argo CD deployment
 
-Deploy the Helm umbrella chart (`chip-applications`) that includes:
+1. Prepare a cluster with Argo CD installed in the `argocd` namespace.
+2. Allow Argo CD to pull this repository:
+   ```bash
+   argocd repo add git@github.com:basavaraj23/chip-game.git \
+     --name chip-game --ssh-private-key-path ~/.ssh/github_chip_game
+   ```
+   Alternatively create a secret:
+   ```bash
+   kubectl create secret generic repo-github-chip-game \
+     --from-literal=url=git@github.com:basavaraj23/chip-game.git \
+     --from-literal=name=chip-game \
+     --from-file=sshPrivateKey=~/.ssh/github_chip_game \
+     -n argocd
+   kubectl label secret repo-github-chip-game argocd.argoproj.io/secret-type=repository -n argocd
+   ```
+3. Install the umbrella chart:
+   ```bash
+   helm upgrade --install chip-applications ./build/helm/chip-applications -n argocd
+   ```
 
-* CloudNativePG Operator
-* Strimzi Kafka Operator
-* Bitnami Redis
+What gets created (via Argo Application-of-Applications):
 
-The bundled Kafka chart (`build/helm/kafka-cluster`) targets Strimzi 0.48 with the default ZooKeeper ensemble, which matches the operator deployed in this guide.
+- Strimzi Kafka Operator (`strimzi-kafka-operator` 0.48.0) scoped to the `kafka` namespace.
+- A single-node Kafka cluster (`chip-kafka`) plus the `chip-moves` topic.
+- CloudNativePG operator and a demo PostgreSQL cluster in `datastores`.
+- Bitnami Redis (replication mode) in `datastores`.
+- The chip backend and frontend workloads in the `chip` namespace.
+
+Each template sets `CreateNamespace` so namespaces are created on sync. Customize values through `build/helm/chip-applications/values.yaml` or Helm `--set`/`-f` overrides (e.g., change Kafka retention, image tags, Redis credentials, etc.).
+
+## Verifying the deployment
 
 ```bash
-helm upgrade --install chip-applications ./build/helm/chip-applications -n argocd
+kubectl get applications.argoproj.io -n argocd
+kubectl get pods -A | grep -E "chip|strimzi|redis|cnpg"
 ```
 
-> Make sure Argo CD can reach the Bitbucket repo first, for example:
->```bash
->argocd repo add ssh://git@bitbucket.org/popreachinc/wcc.git \
->  --name wcc --ssh-private-key-path ~/.ssh/bitbucket_key
->```
->Once added, Argo CD will track branch `CHIP-314-wcc-redis-kafka-and-postgresql` (set in the chart values).
+To test the app end-to-end:
 
-If you manage repository credentials via `kubectl`, create the secret instead of using the Argo CD CLI:
-```bash
-kubectl create secret generic repo-bitbucket-wcc \
-  --from-literal=url=ssh://git@bitbucket.org/popreachinc/wcc.git \
-  --from-literal=name=wcc \
-  --from-file=sshPrivateKey=~/.ssh/bitbucket_key \
-  -n argocd
-kubectl label secret repo-bitbucket-wcc argocd.argoproj.io/secret-type=repository -n argocd
-```
+1. Port-forward the backend: `kubectl -n chip port-forward svc/chip-backend 8080:8080`.
+2. Call the API: `curl -XPOST localhost:8080/api/collect -H 'Content-Type: application/json' -d '{"player":"You","chips":5}'`.
+3. Fetch the leaderboard: `curl localhost:8080/api/leaderboard`.
 
-With the secret in place, Argo CD pulls chart content from branch `CHIP-314-wcc-redis-kafka-and-postgresql`.
+## Contributing
 
----
+1. Fork and clone the repo.
+2. Create a feature branch off `main`.
+3. Keep changes confined to relevant components (backend, frontend, or Helm charts) and add small code comments only where the logic is non-obvious.
+4. Open a pull request once tests (or manual checks) pass.
 
-## Step 5: Retrieve Argo CD Admin Password
-
-Get the auto-generated admin password:
-
-```bash
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath="{.data.password}" | base64 -d; echo
-```
-
-Example output:
-
-```
-7vgxzuaryY-LtqhV
-```
-
----
-
-## Step 6: Access Argo CD UI
-
-Port-forward the Argo CD server service:
-
-```bash
-kubectl -n argocd port-forward svc/argocd-server 8080:443
-```
-
-Access the dashboard at:
-
-[https://localhost:8080](https://localhost:8080)
-
-Login credentials:
-
-* **Username:** `admin`
-* **Password:** (use the value retrieved above)
-
----
-
-## Step 7: Verify Application Deployments
-
-List all Argo CD applications:
-
-```bash
-kubectl -n argocd get applications.argoproj.io
-```
-
-Check specific operators:
-
-```bash
-kubectl -n argocd get applications.argoproj.io | grep -i kafka
-kubectl -n argocd describe application strimzi-operator
-kubectl -n argocd describe application cloudnativepg-operator
-kubectl -n argocd describe application redis
-kubectl -n argocd describe application kafka-cluster
-```
-
----
-
-## Verification
-
----
-
-## Step 8: Run Service Smoke Tests (Optional)
-
-Track the Argo CD application first:
-
-```bash
-kubectl -n argocd get applications.argoproj.io service-tests
-kubectl -n argocd describe application service-tests
-```
-
-Prefer the UI? Port-forward Argo CD and open https://localhost:8080, then inspect the `service-tests` tile.
-
-The umbrella chart now creates a `service-tests` Argo CD application that provisions short-lived workloads to exercise Redis, PostgreSQL, and Kafka.
-
-1. Wait until the `service-tests` application appears in Argo CD and finishes syncing (it is set to auto-sync).
-2. Check the verification jobs with `kubectl get jobs -A | grep smoketest`.
-3. Inspect the job logs for additional detail, for example `kubectl -n datastores logs job/wcc-pg-test-smoketest` or `kubectl -n kafka logs job/wcc-kafka-smoketest`.
-
-What gets deployed:
-- A CloudNativePG `Cluster` named `wcc-pg-test` (namespace `datastores`) and a job that creates a table, inserts a row, and queries it back.
-- A Redis smoke-test job that authenticates with the Bitnami release, writes a key, and reads it back.
-- A Strimzi-backed topic (`wcc-test-topic`), SCRAM user, and job that produces and consumes a unique message.
-
-Disable the tests by setting `serviceTests.enabled=false` (or by removing the application in Argo CD) once you are done.
-
----
-
-
-After successful synchronization in Argo CD UI, verify operator pods:
-
-```bash
-kubectl get pods -A | grep -E "cnpg|strimzi|redis"
-```
-
-Expected namespaces:
-
-* `cnpg-system` → CloudNativePG Operator
-* `kafka` → Strimzi Operator
-* `datastores` → Redis Operator
-
----
-
-## Cleanup
-
-To remove everything:
-
-```bash
-kind delete cluster --name wcc
-```
-
----
-
-## Notes
-
-* `chip-applications` chart should contain Helm subcharts or Argo CD `Application` manifests for each operator.
-* For production or CI/CD use, sync policies can be automated with:
-
-  ```yaml
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-  ```
-
----
-
-### References
-
-* [Argo CD Docs](https://argo-cd.readthedocs.io/)
-* [CloudNativePG Operator](https://cloudnative-pg.io/)
-* [Strimzi Kafka Operator](https://strimzi.io/)
-* [Bitnami Redis Helm Chart](https://bitnami.com/stack/redis/helm)
-
----
-
-**Author:** Garden City Games — DevOps
-**Cluster Name:** `wcc`
-**Last Updated:** October 2025
-
-```
-
----
+Enjoy building and experimenting with Chip Game!

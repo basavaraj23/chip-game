@@ -1,12 +1,13 @@
+{{- $cfg := .Values.kafka -}}
 apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
-  name: chip-kafka
+  name: {{ $cfg.name }}
   namespace: kafka
 spec:
   kafka:
-    version: 3.7.0
-    replicas: 1
+    version: {{ $cfg.version | quote }}
+    replicas: {{ $cfg.replicas }}
     storage:
       type: ephemeral
     listeners:
@@ -14,6 +15,10 @@ spec:
         port: 9092
         type: internal
         tls: false
+{{- if $cfg.retentionMs }}
+    config:
+      log.retention.ms: {{ $cfg.retentionMs }}
+{{- end }}
   zookeeper:
     replicas: 1
     storage:
@@ -25,10 +30,10 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: chip-moves
+  name: {{ $cfg.topicName | default "chip-moves" }}
   namespace: kafka
   labels:
-    strimzi.io/cluster: chip-kafka
+    strimzi.io/cluster: {{ $cfg.name }}
 spec:
-  partitions: 3
-  replicas: 1
+  partitions: {{ $cfg.partitions }}
+  replicas: {{ $cfg.topicReplicas | default $cfg.replicas }}
