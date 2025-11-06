@@ -96,8 +96,8 @@ Push the images to the registry of your choice before syncing the Helm releases 
 
 What gets created (via Argo Application-of-Applications):
 
-- Strimzi Kafka Operator (`strimzi-kafka-operator` 0.48.0) scoped to the `kafka` namespace.
-- A single-node Kafka cluster (`chip-kafka`) plus the `chip-moves` topic.
+- Strimzi Kafka Operator (`strimzi-kafka-operator` 0.50.1) scoped to the `kafka` namespace.
+- A single-node Kafka 4.1.0 cluster (`chip-kafka`) plus the `chip-moves` topic.
 - CloudNativePG operator and a demo PostgreSQL cluster in `datastores`.
 - Bitnami Redis (replication mode) in `datastores`.
 - The chip backend and frontend workloads in the `chip` namespace.

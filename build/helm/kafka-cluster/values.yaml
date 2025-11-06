@@ -1,6 +1,6 @@
 kafka:
   name: chip-kafka
-  version: "3.7.0"
+  version: "4.1.0"
   replicas: 1
   partitions: 3
   retentionMs: 86400000

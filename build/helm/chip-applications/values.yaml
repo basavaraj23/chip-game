@@ -47,12 +47,12 @@ postgresCluster:
     appPass: supersecret
     storageSize: 5Gi
 
-# Strimzi Kafka Operator – 0.48.0 (supports Kafka 3.7)
+# Strimzi Kafka Operator – 0.50.1 (supports Kafka 4.0/4.1)
 strimzi:
   enabled: true
   repoURL: https://strimzi.io/charts/
   chart: strimzi-kafka-operator
-  version: 0.48.0
+  version: 0.50.1
   destinationNamespace: kafka
   values:
     watchNamespaces: ["kafka"]
